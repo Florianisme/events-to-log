@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"events-to-log/logging"
+	"events-to-log/persistence"
 	"flag"
 	"fmt"
 	v1 "k8s.io/api/core/v1"
@@ -16,8 +17,13 @@ import (
 
 func Start() {
 	client := createKubeClient()
+	persistence.Init(client)
 
-	events, err := client.CoreV1().Events("").Watch(context.TODO(), metav1.ListOptions{})
+	options := metav1.ListOptions{
+		ResourceVersion: persistence.GetCurrentResourceVersion(),
+	}
+
+	events, err := client.CoreV1().Events("").Watch(context.TODO(), options)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -32,9 +38,10 @@ func Start() {
 
 		loggableEvent := &logging.LoggableEvent{
 			Metadata: logging.Metadata{
-				Name:      event.ObjectMeta.Name,
-				Namespace: event.ObjectMeta.Namespace,
-				UID:       string(event.ObjectMeta.UID),
+				Name:            event.ObjectMeta.Name,
+				Namespace:       event.ObjectMeta.Namespace,
+				UID:             string(event.ObjectMeta.UID),
+				ResourceVersion: event.ObjectMeta.ResourceVersion,
 			},
 			Message:   event.Message,
 			Timestamp: event.CreationTimestamp.String(),
@@ -45,6 +52,7 @@ func Start() {
 		}
 
 		logging.Log(loggableEvent)
+		persistence.UpdateCurrentResourceVersion(event.ResourceVersion)
 	}
 }
 
