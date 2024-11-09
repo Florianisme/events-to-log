@@ -1,7 +1,9 @@
 package main
 
-import "events-to-log/client"
+import (
+	"events-to-log/events"
+)
 
 func main() {
-	client.Start()
+	events.StartWatching()
 }

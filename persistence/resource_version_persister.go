@@ -29,22 +29,24 @@ func Init(client *kubernetes.Clientset) {
 	}
 
 	ticker := time.NewTicker(5 * time.Second)
-	go updateConfigMapOnTick(ticker, client)
+	go func() {
+		for range ticker.C {
+			updateConfigMap(client)
+		}
+	}()
 }
 
-func updateConfigMapOnTick(ticker *time.Ticker, client *kubernetes.Clientset) {
-	for range ticker.C {
-		configMap, err := getConfigMap(client)
-		if err != nil {
-			panic(err)
-		}
+func updateConfigMap(client *kubernetes.Clientset) {
+	configMap, err := getConfigMap(client)
+	if err != nil {
+		panic(err)
+	}
 
-		configMap.Data["current"] = currentResourceVersion
+	configMap.Data["current"] = currentResourceVersion
 
-		_, err = client.CoreV1().ConfigMaps(namespace).Update(context.TODO(), configMap, metav1.UpdateOptions{})
-		if err != nil {
-			panic(err)
-		}
+	_, err = client.CoreV1().ConfigMaps(namespace).Update(context.TODO(), configMap, metav1.UpdateOptions{})
+	if err != nil {
+		panic(err)
 	}
 }
 
@@ -74,4 +76,8 @@ func GetCurrentResourceVersion() string {
 
 func getConfigMap(client *kubernetes.Clientset) (*v1.ConfigMap, error) {
 	return client.CoreV1().ConfigMaps(namespace).Get(context.TODO(), resourceVersionConfigMapName, metav1.GetOptions{})
+}
+
+func Shutdown(client *kubernetes.Clientset) {
+	updateConfigMap(client)
 }
