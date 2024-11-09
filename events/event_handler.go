@@ -13,14 +13,25 @@ import (
 	"net/http"
 )
 
-func StartWatching() {
+type Watcher struct {
+	events    watch.Interface
+	persister *persistence.ResourceVersionPersister
+}
+
+func Init() *Watcher {
 	kubeClient := client.CreateKubeClient()
-	persistence.Init(kubeClient)
-	defer persistence.Shutdown(kubeClient)
 
-	events := startEventWatch(kubeClient)
+	persister := persistence.Init(kubeClient)
+	events := startEventWatch(kubeClient, persister)
 
-	for watchedEvent := range events.ResultChan() {
+	return &Watcher{
+		events:    events,
+		persister: persister,
+	}
+}
+
+func (s *Watcher) StartWatching() {
+	for watchedEvent := range s.events.ResultChan() {
 		event, ok := watchedEvent.Object.(*v1.Event)
 
 		if !ok {
@@ -29,15 +40,15 @@ func StartWatching() {
 				// We have to reset the current resource version because it's too old
 				fmt.Println("currently stored ResourceVersion is too old. " +
 					"It will be deleted and the application will restart")
-				persistence.UpdateCurrentResourceVersion("")
+				s.persister.UpdateCurrentResourceVersion("")
 			}
 			continue
 		}
 
 		loggableEvent := mapLoggableEvent(event)
-
 		logging.Log(loggableEvent)
-		persistence.UpdateCurrentResourceVersion(event.ResourceVersion)
+
+		s.persister.UpdateCurrentResourceVersion(event.ResourceVersion)
 	}
 }
 
@@ -59,9 +70,16 @@ func mapLoggableEvent(event *v1.Event) *logging.LoggableEvent {
 	return loggableEvent
 }
 
-func startEventWatch(client *kubernetes.Clientset) watch.Interface {
+func startEventWatch(client *kubernetes.Clientset, persister *persistence.ResourceVersionPersister) watch.Interface {
+
+	yes := new(bool)
+	*yes = true
+
 	options := metav1.ListOptions{
-		ResourceVersion: persistence.GetCurrentResourceVersion(),
+		SendInitialEvents:    yes,
+		Watch:                true,
+		ResourceVersionMatch: metav1.ResourceVersionMatchNotOlderThan,
+		ResourceVersion:      persister.GetCurrentResourceVersion(),
 	}
 
 	events, err := client.CoreV1().Events("").Watch(context.TODO(), options)
@@ -69,4 +87,9 @@ func startEventWatch(client *kubernetes.Clientset) watch.Interface {
 		panic(err)
 	}
 	return events
+}
+
+func (s *Watcher) StopWatching() {
+	s.events.Stop()
+	s.persister.Flush()
 }

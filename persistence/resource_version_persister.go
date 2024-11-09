@@ -12,10 +12,16 @@ import (
 var namespace = "event-logging"
 var resourceVersionConfigMapName = "resource-version"
 
-var currentResourceVersion string
+type ResourceVersionPersister struct {
+	client                 *kubernetes.Clientset
+	ticker                 *time.Ticker
+	currentResourceVersion string
+}
 
-func Init(client *kubernetes.Clientset) {
+func Init(client *kubernetes.Clientset) *ResourceVersionPersister {
 	configMap, err := getConfigMap(client)
+	var currentResourceVersion string
+
 	if err != nil {
 		configMap = createResourceVersionConfigMap(client)
 	}
@@ -29,24 +35,30 @@ func Init(client *kubernetes.Clientset) {
 	}
 
 	ticker := time.NewTicker(5 * time.Second)
-	go func() {
-		for range ticker.C {
-			updateConfigMap(client)
-		}
-	}()
-}
 
-func updateConfigMap(client *kubernetes.Clientset) {
-	configMap, err := getConfigMap(client)
-	if err != nil {
-		panic(err)
+	persister := &ResourceVersionPersister{
+		client:                 client,
+		ticker:                 ticker,
+		currentResourceVersion: currentResourceVersion,
 	}
 
-	configMap.Data["current"] = currentResourceVersion
+	go persister.updateConfigMap()
+	return persister
+}
 
-	_, err = client.CoreV1().ConfigMaps(namespace).Update(context.TODO(), configMap, metav1.UpdateOptions{})
-	if err != nil {
-		panic(err)
+func (s *ResourceVersionPersister) updateConfigMap() {
+	for range s.ticker.C {
+		configMap, err := getConfigMap(s.client)
+		if err != nil {
+			panic(err)
+		}
+
+		configMap.Data["current"] = s.currentResourceVersion
+
+		_, err = s.client.CoreV1().ConfigMaps(namespace).Update(context.TODO(), configMap, metav1.UpdateOptions{})
+		if err != nil {
+			panic(err)
+		}
 	}
 }
 
@@ -66,18 +78,18 @@ func createResourceVersionConfigMap(client *kubernetes.Clientset) *v1.ConfigMap 
 	return configMap
 }
 
-func UpdateCurrentResourceVersion(updatedResourceVersion string) {
-	currentResourceVersion = updatedResourceVersion
+func (s *ResourceVersionPersister) UpdateCurrentResourceVersion(updatedResourceVersion string) {
+	s.currentResourceVersion = updatedResourceVersion
 }
 
-func GetCurrentResourceVersion() string {
-	return currentResourceVersion
+func (s *ResourceVersionPersister) GetCurrentResourceVersion() string {
+	return s.currentResourceVersion
 }
 
 func getConfigMap(client *kubernetes.Clientset) (*v1.ConfigMap, error) {
 	return client.CoreV1().ConfigMaps(namespace).Get(context.TODO(), resourceVersionConfigMapName, metav1.GetOptions{})
 }
-
-func Shutdown(client *kubernetes.Clientset) {
-	updateConfigMap(client)
+func (s *ResourceVersionPersister) Flush() {
+	fmt.Printf("flushing last received ResourceVersion %d of event to ConfigMap\n", s.currentResourceVersion)
+	s.updateConfigMap()
 }
