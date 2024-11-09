@@ -10,19 +10,18 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
-	"net/http"
 )
 
 type Watcher struct {
 	events    watch.Interface
-	persister *persistence.ResourceVersionPersister
+	persister *persistence.TimestampPersister
 }
 
 func Init() *Watcher {
 	kubeClient := client.CreateKubeClient()
 
 	persister := persistence.Init(kubeClient)
-	events := startEventWatch(kubeClient, persister)
+	events := startEventWatch(kubeClient)
 
 	return &Watcher{
 		events:    events,
@@ -35,20 +34,18 @@ func (s *Watcher) StartWatching() {
 		event, ok := watchedEvent.Object.(*v1.Event)
 
 		if !ok {
-			status := watchedEvent.Object.(*metav1.Status)
-			if status.Code == http.StatusGone {
-				// We have to reset the current resource version because it's too old
-				fmt.Println("currently stored ResourceVersion is too old. " +
-					"It will be deleted and the application will restart")
-				s.persister.UpdateCurrentResourceVersion("")
-			}
+			fmt.Printf("event of type %s can not be mapped, skipping\n", event.Type)
 			continue
+		}
+
+		if event.CreationTimestamp.Time.Before(s.persister.GetCurrentTimestamp()) {
+			fmt.Println("event has already been processed, skipping")
 		}
 
 		loggableEvent := mapLoggableEvent(event)
 		logging.Log(loggableEvent)
 
-		s.persister.UpdateCurrentResourceVersion(event.ResourceVersion)
+		s.persister.UpdateCurrentTimestamp(event.CreationTimestamp.Time)
 	}
 }
 
@@ -70,19 +67,8 @@ func mapLoggableEvent(event *v1.Event) *logging.LoggableEvent {
 	return loggableEvent
 }
 
-func startEventWatch(client *kubernetes.Clientset, persister *persistence.ResourceVersionPersister) watch.Interface {
-
-	yes := new(bool)
-	*yes = true
-
-	options := metav1.ListOptions{
-		SendInitialEvents:    yes,
-		Watch:                true,
-		ResourceVersionMatch: metav1.ResourceVersionMatchNotOlderThan,
-		ResourceVersion:      persister.GetCurrentResourceVersion(),
-	}
-
-	events, err := client.CoreV1().Events("").Watch(context.TODO(), options)
+func startEventWatch(client *kubernetes.Clientset) watch.Interface {
+	events, err := client.CoreV1().Events("").Watch(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		panic(err)
 	}
