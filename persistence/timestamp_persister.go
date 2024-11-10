@@ -38,6 +38,7 @@ func Init(client *kubernetes.Clientset) *TimestampPersister {
 			currentTimestamp = time.UnixMilli(0)
 		} else {
 			currentTimestamp = time.UnixMilli(int64(convertedTimestamp))
+			fmt.Printf("timestamp to pick up at found, starting event logging at %s\n", currentTimestamp.String())
 		}
 	}
 

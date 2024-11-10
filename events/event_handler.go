@@ -38,8 +38,9 @@ func (s *Watcher) StartWatching() {
 			continue
 		}
 
-		if event.CreationTimestamp.Time.Before(s.persister.GetCurrentTimestamp()) {
-			fmt.Println("event has already been processed, skipping")
+		if eventAlreadyProcessed(event, s) {
+			fmt.Printf("event has already been processed, skipping (at %s)\n", event.CreationTimestamp.String())
+			continue
 		}
 
 		loggableEvent := mapLoggableEvent(event)
@@ -47,6 +48,11 @@ func (s *Watcher) StartWatching() {
 
 		s.persister.UpdateCurrentTimestamp(event.CreationTimestamp.Time)
 	}
+}
+
+func eventAlreadyProcessed(event *v1.Event, s *Watcher) bool {
+	return event.CreationTimestamp.Time.Equal(s.persister.GetCurrentTimestamp()) ||
+		event.CreationTimestamp.Time.Before(s.persister.GetCurrentTimestamp())
 }
 
 func mapLoggableEvent(event *v1.Event) *logging.LoggableEvent {
