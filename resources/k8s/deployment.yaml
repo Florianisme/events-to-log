@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: events-to-log
+  name: event-logging
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -11,32 +11,55 @@ rules:
   - apiGroups: [ "" ]
     resources: [ "events" ]
     verbs: [ "get", "watch", "list" ]
-
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: events-to-log
+  namespace: event-logging
+rules:
+  - apiGroups: [ "" ]
+    resources: [ "configmaps" ]
+    verbs: [ "get", "create", "update" ]
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: events-to-log-sa
-  namespace: events-to-log
+  namespace: event-logging
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: events-to-log
+  name: events-to-log-crb
 subjects:
   - kind: ServiceAccount
     name: events-to-log-sa
-    namespace: events-to-log
+    namespace: event-logging
 roleRef:
   kind: ClusterRole
   name: events-to-log-watcher
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: events-to-log-rb
+  namespace: event-logging
+subjects:
+  - kind: ServiceAccount
+    name: events-to-log-sa
+    namespace: event-logging
+roleRef:
+  kind: Role
+  name: events-to-log
   apiGroup: rbac.authorization.k8s.io
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: events-to-log
-  namespace: events-to-log
+  namespace: event-logging
   labels:
     app: events-to-log
 spec:
@@ -53,6 +76,6 @@ spec:
       containers:
         - name: events-to-log
           image: ghcr.io/florianisme/events-to-log:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
       serviceAccountName: events-to-log-sa
       restartPolicy: Always
