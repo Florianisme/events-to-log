@@ -7,6 +7,17 @@ It then formats these events and prints them to the console.
   * Events are not easily searchable
 * I can not use my existing Log-Collection Stack (such as [ELK](https://www.elastic.co/de/elastic-stack)) on events
 
+
+### Deploying the Application
+To deploy the application in your Kubernetes Cluster, run the following command:
+
+```shell
+kubctl apply -f https://raw.githubusercontent.com/Florianisme/events-to-log/refs/heads/main/resources/k8s/deployment.yaml
+```
+
+A Pod in the newly created `event-logging` namespace will then start logging all events.
+
+
 ### Example Output
 When scaling up a Deployment, this is what the output would look like:
 
@@ -25,6 +36,3 @@ When scaling up a Deployment, this is what the output would look like:
   "reporter": "deployment-controller"
 }
 ```
-
-### Deploying the Application
-TODO Docker Image and kube-resources
