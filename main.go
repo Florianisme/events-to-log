@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"events-to-log/events"
-	"os"
 	"os/signal"
 	"sync"
 	"syscall"
@@ -12,16 +11,17 @@ import (
 var wg sync.WaitGroup
 
 func main() {
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM)
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
 
+	wg.Add(1)
+
 	watcher := events.Init()
-	go watcher.StartWatching()
+	go watcher.StartWatching(&wg)
 
 	<-ctx.Done()
 
 	watcher.StopWatching()
 
 	wg.Wait()
-	os.Exit(0)
 }

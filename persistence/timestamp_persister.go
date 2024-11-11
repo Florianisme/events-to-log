@@ -2,7 +2,7 @@ package persistence
 
 import (
 	"context"
-	"fmt"
+	"events-to-log/logging"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -17,9 +17,10 @@ type TimestampPersister struct {
 	client           *kubernetes.Clientset
 	ticker           *time.Ticker
 	currentTimestamp time.Time
+	logger           *logging.Logger
 }
 
-func Init(client *kubernetes.Clientset) *TimestampPersister {
+func Init(client *kubernetes.Clientset, logger *logging.Logger) *TimestampPersister {
 	configMap, err := getConfigMap(client)
 	var currentTimestamp time.Time
 
@@ -29,16 +30,16 @@ func Init(client *kubernetes.Clientset) *TimestampPersister {
 
 	resolvedTimestamp := configMap.Data["current"]
 	if len(resolvedTimestamp) == 0 {
-		fmt.Printf("no timestamp found, starting to watch events from the start\n")
+		logger.Logger.Debug().Msg("no timestamp found, starting to watch events from the start")
 		currentTimestamp = time.UnixMilli(0)
 	} else {
 		convertedTimestamp, err := strconv.Atoi(resolvedTimestamp)
 		if err != nil {
-			fmt.Printf("malformed timestamp found, starting from the start\n")
+			logger.Logger.Debug().Msg("malformed timestamp found, starting from the start")
 			currentTimestamp = time.UnixMilli(0)
 		} else {
 			currentTimestamp = time.UnixMilli(int64(convertedTimestamp))
-			fmt.Printf("timestamp to pick up at found, starting event logging at %s\n", currentTimestamp.String())
+			logger.Logger.Debug().Msgf("timestamp to pick up at found, starting event logging at %s", currentTimestamp.String())
 		}
 	}
 
@@ -48,6 +49,7 @@ func Init(client *kubernetes.Clientset) *TimestampPersister {
 		client:           client,
 		ticker:           ticker,
 		currentTimestamp: currentTimestamp,
+		logger:           logger,
 	}
 
 	go persister.updateConfigMap()
@@ -62,6 +64,8 @@ func (s *TimestampPersister) updateConfigMap() {
 		}
 
 		configMap.Data["current"] = strconv.FormatInt(s.currentTimestamp.UnixMilli(), 10)
+		s.logger.Logger.Debug().Msgf("updating current timestamp to %s (unix millis: %d",
+			s.currentTimestamp.String(), s.currentTimestamp.UnixMilli())
 
 		_, err = s.client.CoreV1().ConfigMaps(namespace).Update(context.TODO(), configMap, metav1.UpdateOptions{})
 		if err != nil {
@@ -87,6 +91,11 @@ func createTimestampConfigMap(client *kubernetes.Clientset) *v1.ConfigMap {
 }
 
 func (s *TimestampPersister) UpdateCurrentTimestamp(updatedTimestamp time.Time) {
+	if updatedTimestamp.Before(s.currentTimestamp) {
+		s.logger.Logger.Debug().Msgf("not updating timestamp because it's (%s) older than the current one (%s)",
+			updatedTimestamp.String(), s.currentTimestamp.String())
+		return
+	}
 	s.currentTimestamp = updatedTimestamp
 }
 
@@ -98,6 +107,9 @@ func getConfigMap(client *kubernetes.Clientset) (*v1.ConfigMap, error) {
 	return client.CoreV1().ConfigMaps(namespace).Get(context.TODO(), timestampConfigMapName, metav1.GetOptions{})
 }
 func (s *TimestampPersister) Flush() {
-	fmt.Printf("flushing last received timstamp %s of event to ConfigMap\n", s.currentTimestamp.String())
+	s.currentTimestamp = time.Now()
+	s.logger.Logger.Debug().Msgf("flushing current timstamp %s to ConfigMap", s.currentTimestamp.String())
+	s.ticker.Stop()
+
 	s.updateConfigMap()
 }
