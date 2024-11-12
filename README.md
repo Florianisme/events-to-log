@@ -8,7 +8,7 @@ It then formats these events and prints them to the console.
 * I can not use my existing Log-Collection Stack (such as [ELK](https://www.elastic.co/de/elastic-stack)) on events
 
 
-### Deploying the Application
+## Deploying the Application
 To deploy the application in your Kubernetes Cluster, run the following command:
 
 ```shell
@@ -19,7 +19,7 @@ A Pod in the newly created `event-logging` namespace will then start logging all
 
 
 ### Example Output
-When scaling up a Deployment, this is what the output would look like:
+This is what the output of another Pod's startup event would look like:
 
 ```json
 {
@@ -36,3 +36,11 @@ When scaling up a Deployment, this is what the output would look like:
   "reporter": "deployment-controller"
 }
 ```
+
+## Configuration
+The application is configurable via the environment variables:
+
+| Environment Variable | Description                                                      | Default Value |
+|:--------------------:|------------------------------------------------------------------|:-------------:|
+|          TZ          | Timezone of the logged event's timestamp (UTC for example)       |               |
+|      LOG_LEVEL       | The application's internal logging level (not related to events) |     INFO      |
