@@ -18,6 +18,7 @@ type TimestampPersister struct {
 	ticker           *time.Ticker
 	currentTimestamp time.Time
 	logger           *logging.Logger
+	done             chan bool
 }
 
 func Init(client *kubernetes.Clientset, logger *logging.Logger) *TimestampPersister {
@@ -44,33 +45,44 @@ func Init(client *kubernetes.Clientset, logger *logging.Logger) *TimestampPersis
 	}
 
 	ticker := time.NewTicker(5 * time.Second)
+	done := make(chan bool)
 
 	persister := &TimestampPersister{
 		client:           client,
 		ticker:           ticker,
 		currentTimestamp: currentTimestamp,
 		logger:           logger,
+		done:             done,
 	}
 
-	go persister.updateConfigMap()
+	go persister.runScheduledUpdates()
 	return persister
 }
 
+func (s *TimestampPersister) runScheduledUpdates() {
+	for {
+		select {
+		case <-s.done:
+			return
+		case <-s.ticker.C:
+			s.updateConfigMap()
+		}
+	}
+}
+
 func (s *TimestampPersister) updateConfigMap() {
-	for range s.ticker.C {
-		configMap, err := getConfigMap(s.client)
-		if err != nil {
-			panic(err)
-		}
+	configMap, err := getConfigMap(s.client)
+	if err != nil {
+		panic(err)
+	}
 
-		configMap.Data["current"] = strconv.FormatInt(s.currentTimestamp.UnixMilli(), 10)
-		s.logger.Logger.Debug().Msgf("updating current timestamp to %s (unix millis: %d",
-			s.currentTimestamp.String(), s.currentTimestamp.UnixMilli())
+	configMap.Data["current"] = strconv.FormatInt(s.currentTimestamp.UnixMilli(), 10)
+	s.logger.Logger.Debug().Msgf("updating current timestamp to %s (unix millis: %d",
+		s.currentTimestamp.String(), s.currentTimestamp.UnixMilli())
 
-		_, err = s.client.CoreV1().ConfigMaps(namespace).Update(context.TODO(), configMap, metav1.UpdateOptions{})
-		if err != nil {
-			panic(err)
-		}
+	_, err = s.client.CoreV1().ConfigMaps(namespace).Update(context.TODO(), configMap, metav1.UpdateOptions{})
+	if err != nil {
+		panic(err)
 	}
 }
 
@@ -109,7 +121,9 @@ func getConfigMap(client *kubernetes.Clientset) (*v1.ConfigMap, error) {
 func (s *TimestampPersister) Flush() {
 	s.currentTimestamp = time.Now()
 	s.logger.Logger.Debug().Msgf("flushing current timstamp %s to ConfigMap", s.currentTimestamp.String())
-	s.ticker.Stop()
 
+	// stop the ticker and return from the goroutine
+	s.ticker.Stop()
+	s.done <- true
 	s.updateConfigMap()
 }

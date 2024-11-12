@@ -9,7 +9,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
-	"sync"
 	"time"
 )
 
@@ -33,11 +32,16 @@ func Init() *Watcher {
 	}
 }
 
-func (s *Watcher) StartWatching(wg *sync.WaitGroup) {
+func (s *Watcher) StartWatching() {
 	for watchedEvent := range (*s.events).ResultChan() {
 		event, ok := watchedEvent.Object.(*v1.Event)
 
 		if !ok {
+			if _, statusOk := watchedEvent.Object.(*metav1.Status); statusOk {
+				// event channel was probably closed, we should safely return here
+				return
+			}
+
 			s.logger.Logger.Debug().Msgf("event of type %s can not be mapped, skipping", event.Type)
 			continue
 		}
@@ -52,7 +56,6 @@ func (s *Watcher) StartWatching(wg *sync.WaitGroup) {
 
 		s.persister.UpdateCurrentTimestamp(event.CreationTimestamp.Time)
 	}
-	wg.Done()
 }
 
 func eventAlreadyProcessed(event *v1.Event, s *Watcher) bool {

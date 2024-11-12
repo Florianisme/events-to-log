@@ -14,10 +14,8 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
 
-	wg.Add(1)
-
 	watcher := events.Init()
-	go watcher.StartWatching(&wg)
+	go watcher.StartWatching()
 
 	<-ctx.Done()
 
