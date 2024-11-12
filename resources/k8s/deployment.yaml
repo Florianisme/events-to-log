@@ -75,7 +75,14 @@ spec:
     spec:
       containers:
         - name: events-to-log
-          image: ghcr.io/florianisme/events-to-log:latest
-          imagePullPolicy: Always
+          image: ghcr.io/florianisme/events-to-log:0.0.2
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: 100m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 16Mi
       serviceAccountName: events-to-log-sa
       restartPolicy: Always
