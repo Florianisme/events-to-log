@@ -77,6 +77,9 @@ spec:
         - name: events-to-log
           image: ghcr.io/florianisme/events-to-log:0.0.2
           imagePullPolicy: IfNotPresent
+          env:
+            - name: LOG_LEVEL
+              value: INFO
           resources:
             requests:
               cpu: 100m
