@@ -39,7 +39,7 @@ func Init(client *kubernetes.Clientset, logger *logging.Logger) *TimestampPersis
 			logger.Logger.Debug().Msg("malformed timestamp found, starting from the start")
 			currentTimestamp = time.UnixMilli(0)
 		} else {
-			currentTimestamp = time.UnixMilli(int64(convertedTimestamp))
+			currentTimestamp = time.UnixMilli(int64(convertedTimestamp)).UTC()
 			logger.Logger.Debug().Msgf("timestamp to pick up at found, starting event logging at %s", currentTimestamp.String())
 		}
 	}
@@ -76,7 +76,15 @@ func (s *TimestampPersister) updateConfigMap() {
 		panic(err)
 	}
 
-	configMap.Data["current"] = strconv.FormatInt(s.currentTimestamp.UnixMilli(), 10)
+	currentlySavedTimestamp := configMap.Data["current"]
+	updatedTimestamp := strconv.FormatInt(s.currentTimestamp.UnixMilli(), 10)
+
+	if currentlySavedTimestamp == updatedTimestamp {
+		// nothing to do
+		return
+	}
+
+	configMap.Data["current"] = updatedTimestamp
 	s.logger.Logger.Debug().Msgf("updating current timestamp to %s (unix millis: %d",
 		s.currentTimestamp.String(), s.currentTimestamp.UnixMilli())
 
@@ -103,6 +111,8 @@ func createTimestampConfigMap(client *kubernetes.Clientset) *v1.ConfigMap {
 }
 
 func (s *TimestampPersister) UpdateCurrentTimestamp(updatedTimestamp time.Time) {
+	updatedTimestamp = updatedTimestamp.UTC()
+
 	if updatedTimestamp.Before(s.currentTimestamp) {
 		s.logger.Logger.Debug().Msgf("not updating timestamp because it's (%s) older than the current one (%s)",
 			updatedTimestamp.String(), s.currentTimestamp.String())
@@ -119,7 +129,7 @@ func getConfigMap(client *kubernetes.Clientset) (*v1.ConfigMap, error) {
 	return client.CoreV1().ConfigMaps(namespace).Get(context.TODO(), timestampConfigMapName, metav1.GetOptions{})
 }
 func (s *TimestampPersister) Flush() {
-	s.currentTimestamp = time.Now()
+	s.currentTimestamp = time.Now().UTC()
 	s.logger.Logger.Debug().Msgf("flushing current timstamp %s to ConfigMap", s.currentTimestamp.String())
 
 	// stop the ticker and return from the goroutine

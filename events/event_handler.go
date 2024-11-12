@@ -47,7 +47,7 @@ func (s *Watcher) StartWatching() {
 		}
 
 		if eventAlreadyProcessed(event, s) {
-			s.logger.Logger.Debug().Msgf("event has already been processed, skipping (at %s)", event.CreationTimestamp.String())
+			s.logger.Logger.Debug().Msgf("event has already been processed, skipping (at %s)", event.CreationTimestamp.UTC().String())
 			continue
 		}
 
@@ -73,7 +73,7 @@ func mapLoggableEvent(event *v1.Event) *logging.LoggableEvent {
 			ResourceVersion: event.ObjectMeta.ResourceVersion,
 		},
 		Message:   event.Message,
-		Timestamp: event.CreationTimestamp.String(),
+		Timestamp: event.CreationTimestamp.Local().String(),
 		Reason:    event.Reason,
 		Type:      event.Type,
 		Count:     event.Count,
