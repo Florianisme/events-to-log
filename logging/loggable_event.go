@@ -1,13 +1,15 @@
 package logging
 
 type LoggableEvent struct {
-	Metadata  `json:"event_metadata"`
-	Message   string `json:"message"`
-	Timestamp string `json:"timestamp"`
-	Reason    string `json:"reason"`
-	Type      string `json:"type"`
-	Count     int32  `json:"count"`
-	Reporter  string `json:"reporter"`
+	Metadata           `json:"event_metadata"`
+	Message            string `json:"message"`
+	CreationTimestamp  string `json:"timestamp"`
+	FirstSeenTimestamp string `json:"firstSeenTimestamp"`
+	LastSeenTimestamp  string `json:"lastSeenTimestamp"`
+	Reason             string `json:"reason"`
+	Type               string `json:"type"`
+	Count              int32  `json:"count"`
+	Reporter           string `json:"reporter"`
 }
 
 type Metadata struct {

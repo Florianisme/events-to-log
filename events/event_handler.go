@@ -46,22 +46,23 @@ func (s *Watcher) StartWatching() {
 			continue
 		}
 
-		if eventAlreadyProcessed(event, s) {
-			s.logger.Logger.Debug().Msgf("event has already been processed, skipping (at %s)", event.CreationTimestamp.UTC().String())
+		timestamp := getComparableTimestamp(event)
+		if eventAlreadyProcessed(timestamp, s) {
+			s.logger.Logger.Debug().Msgf("event has already been processed, skipping (at %s)", timestamp.UTC().String())
 			continue
 		}
 
 		loggableEvent := mapLoggableEvent(event)
 		s.logger.Log(loggableEvent)
 
-		s.persister.UpdateCurrentTimestamp(event.CreationTimestamp.Time)
+		s.persister.UpdateCurrentTimestamp(timestamp.Time)
 	}
 }
 
-func eventAlreadyProcessed(event *v1.Event, s *Watcher) bool {
+func eventAlreadyProcessed(timestamp metav1.Time, s *Watcher) bool {
 	// We allow up to 3 seconds of buffer here. In case loads of events are being created at once, we might miss them otherwise.
 	// The chance of processing an event twice after restart is relatively low compared to missing one otherwise.
-	return s.persister.GetCurrentTimestamp().Sub(event.CreationTimestamp.Time) > (3 * time.Second)
+	return s.persister.GetCurrentTimestamp().Sub(timestamp.Time) > (3 * time.Second)
 }
 
 func mapLoggableEvent(event *v1.Event) *logging.LoggableEvent {
@@ -72,14 +73,38 @@ func mapLoggableEvent(event *v1.Event) *logging.LoggableEvent {
 			UID:             string(event.ObjectMeta.UID),
 			ResourceVersion: event.ObjectMeta.ResourceVersion,
 		},
-		Message:   event.Message,
-		Timestamp: event.CreationTimestamp.Local().String(),
-		Reason:    event.Reason,
-		Type:      event.Type,
-		Count:     event.Count,
-		Reporter:  event.ReportingController,
+		Message:            event.Message,
+		CreationTimestamp:  mapTimestamp(event.CreationTimestamp),
+		FirstSeenTimestamp: mapTimestamp(event.FirstTimestamp),
+		LastSeenTimestamp:  mapTimestamp(event.LastTimestamp),
+		Reason:             event.Reason,
+		Type:               event.Type,
+		Count:              event.Count,
+		Reporter:           event.ReportingController,
 	}
 	return loggableEvent
+}
+
+func mapTimestamp(timestamp metav1.Time) string {
+	if timestamp.IsZero() {
+		return ""
+	}
+
+	return timestamp.Local().String()
+}
+
+// getComparableTimestamp returns a comparable timestamp for this event.
+// As some timestamps are optional (but higher in the order of importance), we traverse them in the following
+// order and return the first non-empty timestamp:
+// LastTimestamp (optional) or else CreationTimestamp (always set)
+func getComparableTimestamp(event *v1.Event) metav1.Time {
+	var timestamp = event.LastTimestamp
+
+	if !timestamp.IsZero() {
+		return timestamp
+	}
+
+	return event.CreationTimestamp
 }
 
 func startEventWatch(client *kubernetes.Clientset) *watch.Interface {
