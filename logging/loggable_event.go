@@ -1,7 +1,7 @@
 package logging
 
 type LoggableEvent struct {
-	Metadata  `json:"metadata"`
+	Metadata  `json:"event_metadata"`
 	Message   string `json:"message"`
 	Timestamp string `json:"timestamp"`
 	Reason    string `json:"reason"`
