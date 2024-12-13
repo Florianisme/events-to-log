@@ -110,7 +110,7 @@ func getComparableTimestamp(event *v1.Event) metav1.Time {
 }
 
 func startEventWatch(client *kubernetes.Clientset) *watch.Interface {
-	events, err := client.CoreV1().Events("").Watch(context.TODO(), metav1.ListOptions{Watch: true})
+	events, err := client.CoreV1().Events("").Watch(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		panic(err)
 	}
