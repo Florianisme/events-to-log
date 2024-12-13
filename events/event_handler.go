@@ -48,7 +48,8 @@ func (s *Watcher) StartWatching() {
 
 		timestamp := getComparableTimestamp(event)
 		if eventAlreadyProcessed(timestamp, s) {
-			s.logger.Logger.Debug().Msgf("event has already been processed, skipping (at %s)", timestamp.UTC().String())
+			s.logger.Logger.Debug().Msgf("event %s in namespace %s has already been processed, skipping (at %s)",
+				event.ObjectMeta.Name, event.ObjectMeta.Namespace, timestamp.UTC().String())
 			continue
 		}
 
