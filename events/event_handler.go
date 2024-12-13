@@ -57,6 +57,7 @@ func (s *Watcher) StartWatching() {
 
 		s.persister.UpdateCurrentTimestamp(timestamp.Time)
 	}
+	s.logger.Logger.Debug().Msg("end of channel reached, no more events will be processed")
 }
 
 func eventAlreadyProcessed(timestamp metav1.Time, s *Watcher) bool {
@@ -108,7 +109,7 @@ func getComparableTimestamp(event *v1.Event) metav1.Time {
 }
 
 func startEventWatch(client *kubernetes.Clientset) *watch.Interface {
-	events, err := client.CoreV1().Events("").Watch(context.TODO(), metav1.ListOptions{})
+	events, err := client.CoreV1().Events("").Watch(context.TODO(), metav1.ListOptions{Watch: true})
 	if err != nil {
 		panic(err)
 	}
