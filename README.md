@@ -23,17 +23,20 @@ This is what the output of another Pod's startup event would look like:
 
 ```json
 {
-  "metadata": {
-    "name": "bookinfo-gateway-istio.1806526e9f2c7280",
+  "count": 3,
+  "creationTimestamp": "2024-12-15 12:19:48 +0100 CET",
+  "eventMetadata": {
+    "name": "bookinfo-gateway-istio.181155b9f9950646",
     "namespace": "default",
-    "uid": "5e5e4f53-80bd-4794-8e06-7473d0dbff38"
+    "resource_version": "73535",
+    "uid": "86dd8157-24f2-4790-93d6-d58d1c792031"
   },
-  "message": "Scaled up replica set bookinfo-gateway-istio-b485b9449 to 2 from 1",
-  "timestamp": "2024-11-09 15:15:41 +0100 CET",
+  "firstSeenTimestamp": "2024-12-15 12:19:48 +0100 CET",
+  "lastSeenTimestamp": "2024-12-15 12:46:09 +0100 CET",
+  "message": "Scaled down replica set bookinfo-gateway-istio-754c86f49 to 2 from 3",
   "reason": "ScalingReplicaSet",
-  "type": "Normal",
-  "count": 1,
-  "reporter": "deployment-controller"
+  "reporter": "deployment-controller",
+  "type": "Normal"
 }
 ```
 
