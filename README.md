@@ -40,7 +40,8 @@ This is what the output of another Pod's startup event would look like:
 ## Configuration
 The application is configurable via the environment variables:
 
-| Environment Variable | Description                                                      | Default Value |
-|:--------------------:|------------------------------------------------------------------|:-------------:|
-|          TZ          | Timezone of the logged event's timestamp (UTC for example)       |               |
-|      LOG_LEVEL       | The application's internal logging level (not related to events) |     INFO      |
+| Environment Variable | Description                                                                                                                                         | Default Value |
+|:--------------------:|-----------------------------------------------------------------------------------------------------------------------------------------------------|:-------------:|
+|          TZ          | Timezone of the logged event's timestamp (UTC for example)                                                                                          |      UTC      |
+|      NAMESPACE       | Namespace in which this application is running. If not set, tries to detect it automatically from the injected environment variable "POD_NAMESPACE" | event-logging |
+|      LOG_LEVEL       | The application's internal logging level (not related to events)                                                                                    |     INFO      |

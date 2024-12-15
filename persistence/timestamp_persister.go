@@ -6,11 +6,12 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"os"
 	"strconv"
 	"time"
 )
 
-var namespace = "event-logging"
+var namespace string
 var timestampConfigMapName = "timestamp"
 
 type TimestampPersister struct {
@@ -22,6 +23,7 @@ type TimestampPersister struct {
 }
 
 func Init(client *kubernetes.Clientset, logger *logging.Logger) *TimestampPersister {
+	namespace = getConfiguredNamespace()
 	configMap, err := getConfigMap(client)
 	var currentTimestamp time.Time
 
@@ -57,6 +59,20 @@ func Init(client *kubernetes.Clientset, logger *logging.Logger) *TimestampPersis
 
 	go persister.runScheduledUpdates()
 	return persister
+}
+
+// getConfiguredNamespace returns the namespace in which the ConfigMap should be updated.
+// It returns the value in the following priority order:
+// Environment variable "POD_NAMESPACE", Environment variable "NAMESPACE" or else "event-logging" by default
+func getConfiguredNamespace() string {
+	if podNamespace, isSet := os.LookupEnv("POD_NAMESPACE"); isSet {
+		return podNamespace
+	}
+	if namespace, isSet := os.LookupEnv("NAMESPACE"); isSet {
+		return namespace
+	}
+
+	return "event-logging"
 }
 
 func (s *TimestampPersister) runScheduledUpdates() {
