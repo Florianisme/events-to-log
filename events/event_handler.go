@@ -66,7 +66,8 @@ func (s *Watcher) StartWatching() {
 func eventAlreadyProcessed(timestamp metav1.Time, s *Watcher) bool {
 	// We allow up to 3 seconds of buffer here. In case loads of watcher are being created at once, we might miss them otherwise.
 	// The chance of processing an event twice after restart is relatively low compared to missing one otherwise.
-	return s.persister.GetCurrentTimestamp().Sub(timestamp.Time) > (3 * time.Second)
+	eventAge := s.persister.GetCurrentTimestamp().Sub(timestamp.Time)
+	return eventAge > (3 * time.Second)
 }
 
 func mapLoggableEvent(event *v1.Event) *logging.LoggableEvent {
@@ -113,8 +114,9 @@ func getComparableTimestamp(event *v1.Event) metav1.Time {
 
 func startEventWatch(client *kubernetes.Clientset) *watch2.RetryWatcher {
 	watchFunc := func(options metav1.ListOptions) (watch.Interface, error) {
-		// Return watcher with 10m timeout
-		return client.CoreV1().Events("").Watch(context.TODO(), metav1.ListOptions{})
+		// Return watcher with 30m timeout
+		timeoutSeconds := int64(30 * 60 * 60)
+		return client.CoreV1().Events("").Watch(context.TODO(), metav1.ListOptions{TimeoutSeconds: &timeoutSeconds})
 	}
 
 	watcher, err := watch2.NewRetryWatcher("1", &cache.ListWatch{WatchFunc: watchFunc})
