@@ -65,6 +65,7 @@ func (s *TimestampPersister) runScheduledUpdates() {
 		case <-s.done:
 			return
 		case <-s.ticker.C:
+			s.UpdateCurrentTimestamp(time.Now())
 			s.updateConfigMap()
 		}
 	}
