@@ -75,7 +75,7 @@ spec:
     spec:
       containers:
         - name: events-to-log
-          image: ghcr.io/florianisme/events-to-log:0.0.3
+          image: ghcr.io/florianisme/events-to-log:0.0.9
           imagePullPolicy: IfNotPresent
           env:
             - name: LOG_LEVEL
