@@ -1,11 +1,12 @@
 ## Events to Log
-A simple tool which attaches to the Kube-API and listens for events.<br>
-It then formats these events and prints them to the console.
 
-### What is this trying to solve?
-* Kubernetes events are lost after 1h (by default)
-  * Events are not easily searchable
-* I can not use my existing Log-Collection Stack (such as [ELK](https://www.elastic.co/de/elastic-stack)) on events
+A lightweight utility that connects to the Kubernetes API, watches cluster events, and emits each event as 
+JSON to standard output. 
+
+This makes events easy to store, index, and forward to existing log-collection systems.
+
+Use this tool to retain and search events beyond Kubernetes' default retention window and 
+to integrate Kubernetes events with tools like ELK.
 
 
 ## Deploying the Application
